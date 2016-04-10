@@ -1,0 +1,9 @@
+{
+    "path" : "H:/UIC/Online/Kaggle/titanic",
+    "sortOrder" : [
+        {
+            "ascending" : true,
+            "columnIndex" : 2
+        }
+    ]
+}
