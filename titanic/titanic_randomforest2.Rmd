@@ -1,0 +1,94 @@
+---
+title: "titanic survial"
+author: "Biswajit Maharathi"
+date: "April 10, 2016"
+output: html_document
+---
+
+This scripts creates a random forest model to fit the titanic data given in kaggle competition and then predicts the survival rate for the testing data set.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r,warning=FALSE,results='hide'}
+## load libraries 
+library(ggplot2); library(randomForest); library(caret);library(dplyr);library(mice)
+```
+
+Load the required datasets 
+```{r}
+##load datasets
+training <-read.csv("train.csv", header=TRUE, sep = ",")
+testing  <-read.csv("test.csv", header=TRUE, sep = ",")
+```
+Merge both data sets training and testing for data cleaning 
+```{r}
+##combine data sets 
+totaldata <- bind_rows(training,testing)
+```
+```{r}
+names(totaldata)
+##[1] "PassengerId" "Survived"    "Pclass"      "Name"        "Sex"         "Age"         "SibSp"      
+##[8] "Parch"       "Ticket"      "Fare"        "Cabin"       "Embarked"   
+```
+
+```{r}
+## fields with NA value : Age(263) ; Fare (1) ;Embarked 
+```
+Replace the missing fare value with median fare of the dataset.
+```{r}
+totaldata[is.na(totaldata$Fare),]$Fare <- median(totaldata$Fare,na.rm=TRUE)
+totaldata[totaldata$Embarked=='',]$Embarked <- 'C'
+```
+Insert age for the missing age values. 
+```{r}
+#age correction 
+ft_var <- c('PassengerId','Pclass','Sex','Embarked')
+totaldata[ft_var] <- lapply(totaldata[ft_var], function(x) as.factor(x))
+
+set.seed(234)
+mice_mod <- mice(totaldata[, !names(totaldata) %in% c('PassengerId','Name','Ticket','Cabin','Survived')], method='rf') 
+mice_output <- complete(mice_mod)
+#replace the age
+totaldata$Age <- mice_output$Age
+```
+Now split the data to training and testing for modelling 
+
+```{r}
+##split data again to train and test
+trainfinal <- totaldata[1:891,]
+testfinal <- totaldata[892:1309,]
+```
+
+Build the predictive model(using random forest)
+```{r}
+##build prediction model
+set.seed(556)
+rf_model <- randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + 
+                             Fare + Embarked,data = trainfinal)
+##model error 
+plot(rf_model, ylim=c(0,0.36))
+legend('topright', colnames(rf_model$err.rate), col=1:3, fill=1:3)
+
+```
+Predict the values for training set and check the confusion matrix 
+```{r}
+##predict 
+prd <- predict(rf_model,trainfinal)
+confusionMatrix(prd,trainfinal$Survived)
+```
+
+Predict the required values in the testing data set. 
+```{r}
+##predict the final required values 
+prdfinal <- predict(rf_model,testfinal)
+```
+Write the data to a file 
+```{r}
+#write to the file 
+#submit <- data.frame(PassengerId = testfinal$PassengerId)
+#submit$Survived <- prdfinal
+
+#write.csv(submit, file = "titanic_survive_rf_v02.csv", row.names=FALSE)
+```
+
+
